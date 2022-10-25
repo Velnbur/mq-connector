@@ -115,8 +115,8 @@ func (r *RabbitConfiger) RabbitConsumer() mqconnector.Consumer {
 
 const rabbitProducerYamlKey = "rabbit_producer"
 
-type RabbitProducer interface {
-	RabbitConsumer() mqconnector.Producer
+type RabbitProducerer interface {
+	RabbitProducer() mqconnector.Producer
 }
 
 func (r *RabbitConfiger) RabbitProducer() mqconnector.Producer {
