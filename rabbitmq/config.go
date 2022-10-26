@@ -83,22 +83,20 @@ func (r *RabbitConfiger) RabbitRouter() *RabbitRouter {
 	}).(*RabbitRouter)
 }
 
-const rabbitConsumerYamlKey = "rabbit_consumer"
-
 type RabbitConsumerer interface {
-	RabbitConsumer() mqconnector.Consumer
+	RabbitConsumer(yamlKey string) mqconnector.Consumer
 }
 
 type rabbitQueueConfig struct {
 	Queue string `fig:"queue,required"`
 }
 
-func (r *RabbitConfiger) RabbitConsumer() mqconnector.Consumer {
+func (r *RabbitConfiger) RabbitConsumer(yamlKey string) mqconnector.Consumer {
 	return r.once.Do(func() interface{} {
 		var cfg rabbitQueueConfig
 
 		err := figure.Out(&cfg).
-			From(kv.MustGetStringMap(r.getter, rabbitConsumerYamlKey)).
+			From(kv.MustGetStringMap(r.getter, yamlKey)).
 			Please()
 		if err != nil {
 			panic(errors.Wrap(err, "failed to parse rabbit consumer config"))
@@ -113,18 +111,16 @@ func (r *RabbitConfiger) RabbitConsumer() mqconnector.Consumer {
 	}).(mqconnector.Consumer)
 }
 
-const rabbitProducerYamlKey = "rabbit_producer"
-
 type RabbitProducerer interface {
-	RabbitProducer() mqconnector.Producer
+	RabbitProducer(yamlKey string) mqconnector.Producer
 }
 
-func (r *RabbitConfiger) RabbitProducer() mqconnector.Producer {
+func (r *RabbitConfiger) RabbitProducer(yamlKey string) mqconnector.Producer {
 	return r.once.Do(func() interface{} {
 		var cfg rabbitQueueConfig
 
 		err := figure.Out(&cfg).
-			From(kv.MustGetStringMap(r.getter, rabbitProducerYamlKey)).
+			From(kv.MustGetStringMap(r.getter, yamlKey)).
 			Please()
 		if err != nil {
 			panic(errors.Wrap(err, "failed to parse rabbit producer config"))
