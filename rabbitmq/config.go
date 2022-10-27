@@ -24,8 +24,11 @@ func NewRabbitConfiger(getter kv.Getter) *RabbitConfiger {
 }
 
 type RabbitConfiger struct {
-	getter kv.Getter
-	once   comfig.Once
+	getter         kv.Getter
+	onceConnection comfig.Once
+	onceProducer   comfig.Once
+	onceRouter     comfig.Once
+	onceConsumer   comfig.Once
 }
 
 type rabbitConnectionConfig struct {
@@ -33,7 +36,7 @@ type rabbitConnectionConfig struct {
 }
 
 func (r *RabbitConfiger) RabbitConnection() *amqp.Connection {
-	return r.once.Do(func() interface{} {
+	return r.onceConnection.Do(func() interface{} {
 		var cfg rabbitConnectionConfig
 
 		err := figure.Out(&cfg).
@@ -64,7 +67,7 @@ type rabbitRouterConfig struct {
 }
 
 func (r *RabbitConfiger) RabbitRouter() *RabbitRouter {
-	return r.once.Do(func() interface{} {
+	return r.onceRouter.Do(func() interface{} {
 		var cfg rabbitRouterConfig
 
 		err := figure.Out(&cfg).
@@ -92,7 +95,7 @@ type rabbitQueueConfig struct {
 }
 
 func (r *RabbitConfiger) RabbitConsumer(yamlKey string) mqconnector.Consumer {
-	return r.once.Do(func() interface{} {
+	return r.onceConsumer.Do(func() interface{} {
 		var cfg rabbitQueueConfig
 
 		err := figure.Out(&cfg).
@@ -116,7 +119,7 @@ type RabbitProducerer interface {
 }
 
 func (r *RabbitConfiger) RabbitProducer(yamlKey string) mqconnector.Producer {
-	return r.once.Do(func() interface{} {
+	return r.onceProducer.Do(func() interface{} {
 		var cfg rabbitQueueConfig
 
 		err := figure.Out(&cfg).
