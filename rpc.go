@@ -7,6 +7,8 @@ import (
 
 // A genereal interface for realization router for request-response
 // model from message broker.
+//
+//go:generate mockery --name=RpcServer
 type RpcServer interface {
 	Runner
 	Closable
@@ -18,6 +20,8 @@ type RpcServer interface {
 
 // An interface with which a thread/goroutine can safely communicate
 // with router to send requests into other service.
+//
+//go:generate mockery --name=RpcClient
 type RpcClient interface {
 	Closable
 

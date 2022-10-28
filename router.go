@@ -16,6 +16,10 @@ type Queue struct {
 // in handler's context before the handler will be called.
 type ContextFunc func(parent context.Context) (child context.Context)
 
+// Router - interface for consumer router that will manage and create consumer
+// for each queue.
+//
+//go:generate mockery --name=Router
 type Router interface {
 	Runner
 

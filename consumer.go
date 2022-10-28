@@ -7,10 +7,11 @@ import (
 
 type Handler func(ctx context.Context, data json.RawMessage) error
 
+//go:generate mockery --name=Consumer
 type Consumer interface {
 	Runner
 	Closable
 
-	SetContexters(ctxers ...Contexter) Consumer
+	SetContexters(ctxers ...ContextFunc) Consumer
 	SetHandler(handler Handler) Consumer
 }
