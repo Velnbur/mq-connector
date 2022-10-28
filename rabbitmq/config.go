@@ -61,7 +61,7 @@ func (r *RabbitConfiger) RabbitConnection() *amqp.Connection {
 var _ RabbitRpcServerer = &RabbitConfiger{}
 
 type RabbitRpcServerer interface {
-	RabbitRpcServer(yamlKey string) *RabbitRpcServer
+	RabbitRpcServer(yamlKey string) mqconnector.RpcServer
 }
 
 type rabbitRpcServer struct {
@@ -69,7 +69,7 @@ type rabbitRpcServer struct {
 	RequestsQueue  string `fig:"requests_queue,required"`
 }
 
-func (r *RabbitConfiger) RabbitRpcServer(yamlKey string) *RabbitRpcServer {
+func (r *RabbitConfiger) RabbitRpcServer(yamlKey string) mqconnector.RpcServer {
 	return r.onceRpcServer.Do(func() interface{} {
 		var cfg rabbitRpcServer
 
