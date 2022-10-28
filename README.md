@@ -15,9 +15,19 @@ message from **producer**.
  
 ```mermaid
 flowchart LR
-     Producer --> id1([Queue]);
-     id1([Queue]) --> Consumer;
+     idproducer1((Producer1)) --> idsendmessage1[Message1];
+     idpruducer2((Producer2)) --> idsendmessage2[Message2];
+     idsendmessage1[Message1] --> idqueue{Some Queue};
+     idsendmessage2[Message2] --> idqueue{Some Queue};
+     idqueue{Some Queue} --> idreceivedmessage1[Message1];
+     idqueue{Some Queue} --> idreceivedmessage2[Message2];
+     idreceivedmessage1[Message1] -->  idconsumer1((Consumer1));
+     idreceivedmessage2[Message2] -->  idconsumer2((Consumer2));
 ```
+
+In this situation each consumer receives one message, from queue. But
+there is no such situation when the same message will be consumed two
+or more times by different (or the same) **consumers**.
 
 ### Subscriber and Publisher
 
