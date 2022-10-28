@@ -14,7 +14,7 @@ type Config interface {
     ...
     
     
-	rabbitmq.RabbitConsumerer
+    rabbitmq.RabbitConsumerer
 }
 ```
 
