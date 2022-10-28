@@ -58,3 +58,31 @@ flowchart LR
     idreceivedmessage21[Message2] --> idsubscriber1((Subscriber1));
     idreceivedmessage22[Message2] --> idsubscriber2((Subscriber2));
 ```
+
+### Request/Reply model `RpcServer`, `RpcClient`
+
+Here, for communication between two services, two queues will be created
+for requests and responses respectivly. Each request message will have a
+`ReplyTo` parameter, where will be the name of the queue to which send the
+reponse message.
+
+```mermaid
+flowchart LR
+    idservice1((Service1)) --> idrequest1[Request1];
+    
+    subgraph requests [Requests Queue]
+        idrequest1[Request1] --- idrequest2[Request2];
+        idrequest2[Request2] --- idrequest3[Request3];
+    end
+    
+    idrequest3[Request3] --> idservice2((Service2));
+    
+    idservice2((Service2)) --> idresponse1[Response1];
+    
+    subgraph responses [Responses Queue]
+        idresponse1[Response1] --- idresponse2[Response2];
+        idresponse2[Response2] --- idresponse3[Response3];
+    end
+    
+    idresponse3[Response3] --> idservice1((Service1));
+```
