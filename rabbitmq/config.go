@@ -19,6 +19,7 @@ type RabbitConfiger struct {
 	getter         kv.Getter
 	onceConnection comfig.Once
 	onceProducer   comfig.Once
+	onceRpcServer  comfig.Once
 	onceRouter     comfig.Once
 	onceConsumer   comfig.Once
 }
@@ -63,14 +64,14 @@ type RabbitRpcServerer interface {
 	RabbitRpcServer(yamlKey string) *RabbitRpcServer
 }
 
-type rabbitRouterConfig struct {
+type rabbitRpcServer struct {
 	ResponsesQueue string `fig:"responses_queue,required"`
 	RequestsQueue  string `fig:"requests_queue,required"`
 }
 
 func (r *RabbitConfiger) RabbitRpcServer(yamlKey string) *RabbitRpcServer {
-	return r.onceRouter.Do(func() interface{} {
-		var cfg rabbitRouterConfig
+	return r.onceRpcServer.Do(func() interface{} {
+		var cfg rabbitRpcServer
 
 		err := figure.Out(&cfg).
 			From(kv.MustGetStringMap(r.getter, yamlKey)).
