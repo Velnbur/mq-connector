@@ -8,13 +8,13 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Publisher struct {
+type RabbitPublisher struct {
 	channel *amqp.Channel
 
 	subscription string
 }
 
-func (p *Publisher) Publish(ctx context.Context, data json.RawMessage) error {
+func (p *RabbitPublisher) Publish(ctx context.Context, data json.RawMessage) error {
 	err := p.channel.PublishWithContext(ctx,
 		p.subscription, // exchange
 		"",             // routing key
@@ -30,7 +30,7 @@ func (p *Publisher) Publish(ctx context.Context, data json.RawMessage) error {
 	return nil
 }
 
-func NewPublisher(conn *amqp.Connection, subscription string) (mqconnector.Producer, error) {
+func NewRabbitPublisher(conn *amqp.Connection, subscription string) (mqconnector.Producer, error) {
 	channel, err := conn.Channel()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get channel from connection")
@@ -49,7 +49,7 @@ func NewPublisher(conn *amqp.Connection, subscription string) (mqconnector.Produ
 		return nil, errors.Wrap(err, "failed to declare exchange")
 	}
 
-	return &Publisher{
+	return &RabbitPublisher{
 		channel:      channel,
 		subscription: subscription,
 	}, nil

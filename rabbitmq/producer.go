@@ -10,11 +10,11 @@ import (
 	mqconnector "github.com/Velnbur/mq-connector"
 )
 
-type Producer struct {
+type RabbitProducer struct {
 	connector
 }
 
-func (p *Producer) Publish(ctx context.Context, data json.RawMessage) error {
+func (p *RabbitProducer) Publish(ctx context.Context, data json.RawMessage) error {
 	err := p.channel.PublishWithContext(
 		ctx,
 		"", // exchange
@@ -31,13 +31,13 @@ func (p *Producer) Publish(ctx context.Context, data json.RawMessage) error {
 	return nil
 }
 
-func NewProducer(conn *amqp.Connection, queueName string) (mqconnector.Producer, error) {
+func NewRabbitProducer(conn *amqp.Connection, queueName string) (mqconnector.Producer, error) {
 	connector, err := newConnector(conn, queueName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Producer{
+	return &RabbitProducer{
 		connector: *connector,
 	}, nil
 }

@@ -2,191 +2,96 @@ package rabbitmq
 
 import (
 	"context"
-	"log"
 	"sync"
 
-	mqc "github.com/Velnbur/mq-connector"
-	"github.com/google/uuid"
+	mqconnector "github.com/Velnbur/mq-connector"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Check on compile time, that RabbitRouter implements
-// mqc.Router
-var _ mqc.Router = &RabbitRouter{}
+var _ mqconnector.Router = &RabbitRouter{}
+
+type rabbitRoute struct {
+	handler  mqconnector.Handler
+	contexts []mqconnector.ContextFunc
+}
 
 type RabbitRouter struct {
-	channel       *amqp.Channel
-	queueRequest  amqp.Queue
-	queueResponse amqp.Queue
+	connection *amqp.Connection
+	wg         sync.WaitGroup
+	handlers   map[mqconnector.Queue]rabbitRoute
 
-	requests chan message
-
-	receivers *responseReceivers
+	consumers []mqconnector.Consumer
 }
 
-func (r *RabbitRouter) Close() error {
-	if err := r.channel.Close(); err != nil {
-		return errors.Wrap(err, "failed to close channel")
-	}
-	return nil
-}
-
-const requestsMaxLen = 1024
-
-func NewRouter(conn *amqp.Connection, reqQueue, respQueue string) (*RabbitRouter, error) {
-	channel, err := conn.Channel()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create channel")
-	}
-
-	queueReq, err := channel.QueueDeclare(
-		reqQueue, // name
-		false,    // durable
-		false,    // delete when unused
-		false,    // exclusive
-		false,    // no-wait
-		nil,      // arguments
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create queue")
-	}
-
-	queueResp, err := channel.QueueDeclare(
-		respQueue, // name
-		false,     // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create queue")
-	}
-
+func NewRabbitRouter(conn *amqp.Connection) *RabbitRouter {
 	return &RabbitRouter{
-		channel:       channel,
-		queueRequest:  queueReq,
-		queueResponse: queueResp,
-		requests:      make(chan message, requestsMaxLen),
-		receivers:     newReceivers(),
-	}, nil
-}
-
-const responseReceiverMaxLen = 2
-
-func (r *RabbitRouter) Connection() mqc.RouterConnection {
-	uuid := uuid.New()
-
-	responseReceiver := make(chan message, responseReceiverMaxLen)
-
-	r.receivers.Add(uuid, responseReceiver)
-
-	return &RouterConnection{
-		id:        uuid,
-		requests:  r.requests,
-		responses: responseReceiver,
+		handlers:   make(map[mqconnector.Queue]rabbitRoute),
+		connection: conn,
 	}
 }
 
+// Launch all handlers with consumers running in goroutines
 func (r *RabbitRouter) Run(ctx context.Context) {
-	deliveries, err := r.channel.Consume(
-		r.queueResponse.Name, "", true, false, false, false, nil)
-	if err != nil {
-		// TODO: may be use antither router or handle it in another way
-		log.Fatalf("failed to consume msg: %s", err)
+	defer r.Close()
+
+	for queue, route := range r.handlers {
+		consumer, err := r.newConsumer(queue)
+		if err != nil {
+			panic(err)
+		}
+		r.consumers = append(r.consumers, consumer)
+
+		r.wg.Add(1)
+		go r.runConsumer(ctx, consumer, route.handler, route.contexts)
 	}
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("context closed, finishing...")
-			return
-		case msg := <-r.requests:
-			err = r.handleMessage(ctx, msg)
-		case delivery := <-deliveries:
-			err = r.handleResponse(delivery)
-		}
-		if err != nil {
-			// TODO: may be use antither router or handle it in another way
-			log.Fatalf("failed to handle delivery or msg: %s", err)
-		}
-	}
+	r.wg.Wait()
 }
 
-func (r *RabbitRouter) handleMessage(ctx context.Context, msg message) error {
-	var err error
-
-	switch msg.Type {
-	case messageClose:
-		id := uuid.MustParse(msg.CorrelationID)
-		r.receivers.Close(id)
-	case messageSend:
-		err = r.channel.PublishWithContext(
-			ctx,
-			"",
-			r.queueRequest.Name,
-			false,
-			false,
-			amqp.Publishing{
-				ContentType:   "application/json",
-				CorrelationId: msg.CorrelationID,
-				ReplyTo:       r.queueResponse.Name,
-				Body:          msg.Data,
-			})
-
-		if err != nil {
-			return errors.Wrap(err, "failed to publish delivery")
-		}
+// create new consumer depending on queue type
+func (r *RabbitRouter) newConsumer(queue mqconnector.Queue) (mqconnector.Consumer, error) {
+	if queue.Name != "" {
+		return NewRabbitConsumer(r.connection, queue.Name)
 	}
-
-	return err
+	if queue.Subscribtion != "" {
+		return NewRabbitConsumer(r.connection, queue.Subscribtion)
+	}
+	return nil, errors.New("queue type is not supported")
 }
 
-func (r *RabbitRouter) handleResponse(delivery amqp.Delivery) error {
-	id := uuid.MustParse(delivery.CorrelationId)
+// launch consumer with handler and contexters
+func (r *RabbitRouter) runConsumer(
+	ctx context.Context,
+	consumer mqconnector.Consumer,
+	handler mqconnector.Handler,
+	contexts []mqconnector.ContextFunc,
+) {
+	defer r.wg.Done()
+	consumer.
+		SetHandler(handler).
+		SetContexters(contexts...).
+		Run(ctx)
+}
 
-	recv := r.receivers.Get(id)
-
-	recv <- message{
-		Data: delivery.Body,
+// close all consumers
+func (r *RabbitRouter) Close() error {
+	for _, consumer := range r.consumers {
+		if err := consumer.Close(); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
-// responseReceivers - is just a thread read/write save wrapper around map
-// of Receiver's
-type responseReceivers struct {
-	mapMux *sync.RWMutex
+func (r *RabbitRouter) Route(
+	queue mqconnector.Queue,
+	handler mqconnector.Handler,
+	contexters ...mqconnector.ContextFunc,
+) {
 
-	routes map[uuid.UUID]chan<- message
-}
-
-func newReceivers() *responseReceivers {
-	return &responseReceivers{
-		mapMux: new(sync.RWMutex),
-		routes: make(map[uuid.UUID]chan<- message),
+	r.handlers[queue] = rabbitRoute{
+		handler:  handler,
+		contexts: contexters,
 	}
-}
-
-func (r *responseReceivers) Add(id uuid.UUID, recv chan<- message) {
-	r.mapMux.Lock()
-	r.routes[id] = recv
-	r.mapMux.Unlock()
-}
-
-func (r *responseReceivers) Get(id uuid.UUID) chan<- message {
-	r.mapMux.RLock()
-	route := r.routes[id]
-	r.mapMux.RUnlock()
-
-	return route
-}
-
-func (r *responseReceivers) Close(id uuid.UUID) {
-	r.mapMux.Lock()
-	close(r.routes[id])
-	delete(r.routes, id)
-	r.mapMux.Unlock()
 }

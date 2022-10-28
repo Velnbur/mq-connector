@@ -4,33 +4,46 @@ import (
 	"context"
 	"log"
 
+	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
 
-	mqconnector "github.com/Velnbur/mq-connector"
+	mqc "github.com/Velnbur/mq-connector"
 )
 
-type Consumer struct {
+var _ mqc.Consumer = &RabbitConsumer{}
+
+type RabbitConsumer struct {
 	connector
-	handler mqconnector.Handler
+	contexters []mqc.ContextFunc
+	handler    mqc.Handler
 }
 
-func NewConsumer(conn *amqp.Connection, queueName string) (mqconnector.Consumer, error) {
+func NewRabbitConsumer(conn *amqp.Connection, queueName string) (mqc.Consumer, error) {
 	connector, err := newConnector(conn, queueName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Consumer{
+	return &RabbitConsumer{
 		connector: *connector,
 	}, nil
 }
 
-func (c *Consumer) SetHandler(handler mqconnector.Handler) mqconnector.Consumer {
+func (c *RabbitConsumer) SetContexters(ctxers ...mqc.ContextFunc) mqc.Consumer {
+	c.contexters = ctxers
+	return c
+}
+
+func (c *RabbitConsumer) SetHandler(handler mqc.Handler) mqc.Consumer {
 	c.handler = handler
 	return c
 }
 
-func (c *Consumer) Run(ctx context.Context) {
+func (c *RabbitConsumer) Close() error {
+	return errors.Wrap(c.channel.Close(), "failed to close channel")
+}
+
+func (c *RabbitConsumer) Run(ctx context.Context) {
 	deliveries, err := c.channel.Consume(
 		c.queue.Name,
 		"", // consumer name
@@ -51,6 +64,7 @@ func (c *Consumer) Run(ctx context.Context) {
 			log.Println("[INFO]: context canceled, finishing...")
 			return
 		case delivery := <-deliveries:
+			ctx := c.applyContexts(ctx)
 			err = c.handler(ctx, delivery.Body)
 
 			if err != nil {
@@ -62,4 +76,12 @@ func (c *Consumer) Run(ctx context.Context) {
 			delivery.Ack(false)
 		}
 	}
+}
+
+// apply contexters to context
+func (c *RabbitConsumer) applyContexts(ctx context.Context) context.Context {
+	for _, contexter := range c.contexters {
+		ctx = contexter(ctx)
+	}
+	return ctx
 }

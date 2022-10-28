@@ -6,11 +6,11 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type Subscriber struct {
-	Consumer
+type RabbitSubscriber struct {
+	RabbitConsumer
 }
 
-func NewSubscriber(conn *amqp.Connection, subscription string) (mqconnector.Consumer, error) {
+func NewRabbitSubscriber(conn *amqp.Connection, subscription string) (mqconnector.Consumer, error) {
 	channel, err := conn.Channel()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get channel from conection")
@@ -45,8 +45,8 @@ func NewSubscriber(conn *amqp.Connection, subscription string) (mqconnector.Cons
 		return nil, errors.Wrap(err, "failed to bind queue")
 	}
 
-	return &Subscriber{
-		Consumer: Consumer{
+	return &RabbitSubscriber{
+		RabbitConsumer: RabbitConsumer{
 			connector: connector{
 				channel: channel,
 				queue:   queue,
