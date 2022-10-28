@@ -9,14 +9,6 @@ import (
 	"gitlab.com/distributed_lab/kit/kv"
 )
 
-const (
-	rabbitYamlKey = "rabbit"
-)
-
-type RabbitConnectioner interface {
-	RabbitConnection() *amqp.Connection
-}
-
 func NewRabbitConfiger(getter kv.Getter) *RabbitConfiger {
 	return &RabbitConfiger{
 		getter: getter,
@@ -29,6 +21,16 @@ type RabbitConfiger struct {
 	onceProducer   comfig.Once
 	onceRouter     comfig.Once
 	onceConsumer   comfig.Once
+}
+
+const (
+	rabbitYamlKey = "rabbit"
+)
+
+var _ RabbitConnectioner = &RabbitConfiger{}
+
+type RabbitConnectioner interface {
+	RabbitConnection() *amqp.Connection
 }
 
 type rabbitConnectionConfig struct {
@@ -55,10 +57,10 @@ func (r *RabbitConfiger) RabbitConnection() *amqp.Connection {
 	}).(*amqp.Connection)
 }
 
-const rabbitRouterYamlKey = "rabbit_router"
+var _ RabbitRpcServerer = &RabbitConfiger{}
 
-type RabbitRouterer interface {
-	RabbitRouter() *RabbitRouter
+type RabbitRpcServerer interface {
+	RabbitRpcServer(yamlKey string) *RabbitRpcServer
 }
 
 type rabbitRouterConfig struct {
@@ -66,12 +68,12 @@ type rabbitRouterConfig struct {
 	RequestsQueue  string `fig:"requests_queue,required"`
 }
 
-func (r *RabbitConfiger) RabbitRouter() *RabbitRouter {
+func (r *RabbitConfiger) RabbitRpcServer(yamlKey string) *RabbitRpcServer {
 	return r.onceRouter.Do(func() interface{} {
 		var cfg rabbitRouterConfig
 
 		err := figure.Out(&cfg).
-			From(kv.MustGetStringMap(r.getter, rabbitRouterYamlKey)).
+			From(kv.MustGetStringMap(r.getter, yamlKey)).
 			Please()
 		if err != nil {
 			panic(errors.Wrap(err, "failed to parse rabbit router config"))
@@ -83,8 +85,10 @@ func (r *RabbitConfiger) RabbitRouter() *RabbitRouter {
 		}
 
 		return conn
-	}).(*RabbitRouter)
+	}).(*RabbitRpcServer)
 }
+
+var _ RabbitConsumerer = &RabbitConfiger{}
 
 type RabbitConsumerer interface {
 	RabbitConsumer(yamlKey string) mqconnector.Consumer
@@ -105,7 +109,7 @@ func (r *RabbitConfiger) RabbitConsumer(yamlKey string) mqconnector.Consumer {
 			panic(errors.Wrap(err, "failed to parse rabbit consumer config"))
 		}
 
-		cons, err := NewConsumer(r.RabbitConnection(), cfg.Queue)
+		cons, err := NewRabbitConsumer(r.RabbitConnection(), cfg.Queue)
 		if err != nil {
 			panic(errors.Wrap(err, "failed to create rabbit consumer"))
 		}
@@ -113,6 +117,8 @@ func (r *RabbitConfiger) RabbitConsumer(yamlKey string) mqconnector.Consumer {
 		return cons
 	}).(mqconnector.Consumer)
 }
+
+var _ RabbitProducerer = &RabbitConfiger{}
 
 type RabbitProducerer interface {
 	RabbitProducer(yamlKey string) mqconnector.Producer
@@ -129,7 +135,7 @@ func (r *RabbitConfiger) RabbitProducer(yamlKey string) mqconnector.Producer {
 			panic(errors.Wrap(err, "failed to parse rabbit producer config"))
 		}
 
-		cons, err := NewProducer(r.RabbitConnection(), cfg.Queue)
+		cons, err := NewRabbitProducer(r.RabbitConnection(), cfg.Queue)
 		if err != nil {
 			panic(errors.Wrap(err, "failed to create rabbit producer"))
 		}
