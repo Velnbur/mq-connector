@@ -37,3 +37,24 @@ that will copy message to all subscribed (listening) queues.
 
 **Subscriber** - is the special case of **consumer**, that receives messages from not
 a specific queue but rather exchange or router that it subscribed to.
+
+```mermaid
+flowchart LR
+    idpublisher1((Publisher1)) --> idsendmessage1[Message1];
+    idpublisher2((Publisher2)) --> idsendmessage2[Message2];
+    idsendmessage1[Message1] --> idsubs[(Subscription)];
+    idsendmessage2[Message2] --> idsubs[(Subscription)];
+    idsubs[(Subscription)] --> idreceivedmessage11[Message1];
+    idsubs[(Subscription)] --> idreceivedmessage12[Message1];
+    
+    subgraph queue1 [some queue1]
+        idreceivedmessage11[Message1] --- idreceivedmessage21[Message2];
+    end
+    
+    subgraph queue2 [some queue2]
+        idreceivedmessage12[Message1] --- idreceivedmessage22[Message2];
+    end
+    
+    idreceivedmessage21[Message2] --> idsubscriber1((Subscriber1));
+    idreceivedmessage22[Message2] --> idsubscriber2((Subscriber2));
+```
