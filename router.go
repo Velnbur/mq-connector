@@ -2,27 +2,25 @@ package mqconnector
 
 import (
 	"context"
-	"encoding/json"
 )
 
-// A genereal interface for realization router for request-response
-// model from message broker.
+// A struct that describes a queue params for consumer/produer
+type Queue struct {
+	// A name of the queue for manual common consumers.
+	Name string
+	// A name of the exhange for Subscribers.
+	Subscribtion string
+}
+
+// ContextFunc - a type for functions that will include something
+// in handler's context before the handler will be called.
+type ContextFunc func(parent context.Context) (child context.Context)
+
 type Router interface {
 	Runner
 
-	// Returns an interface with which "client side" could
-	// communicate with the router safely
-	Connection() RouterConnection
-
-	Close() error
-}
-
-// An interface with which a thread/goroutine can safely communicate
-// with router to send requests into other service.
-type RouterConnection interface {
-	// Send delivery through router to another service and block current execution
-	// until the returning og the response
-	Send(ctx context.Context, request json.RawMessage) (response json.RawMessage, err error)
-
-	Close() error
+	// Add a handler for a specific queue. `contexters` - a list of
+	// functions that will be called on each delivery from the queue
+	// to include something in the context before the handler.
+	Route(queue Queue, handler Handler, contexters ...ContextFunc)
 }
