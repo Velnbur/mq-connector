@@ -11,7 +11,7 @@ Add config parser to `config` package by, firstly, adding necessary methods to
 
 ```go
 type Config interface {
-    ...
+    // ...
     
     
     rabbitmq.RabbitConsumerer
@@ -22,8 +22,7 @@ Secondly, add `RabbitConfiger` for config parsing to `config` struct:
 
 ``` go
 type config struct {
-    ...
-    
+    // ...
     *rabbitmq.RabbitConfiger
 }
 ```
@@ -33,7 +32,7 @@ Thirdly, update `Config` constructor:
 ``` go
 func New(getter kv.Getter) Config {
 	return &config{
-        ...
+        // ...
         RabbitConfiger: rabbitmq.NewRabbitConfiger(getter),
     }
 }
@@ -56,6 +55,6 @@ mb_consumer_yaml_key: # just an example. Key may be arbitary
 And know you may get `mqconnector.Consumer` from `cfg config.Config` with:
 
 ``` go
-cfg.RabbitConsumer("mb_consumer_yaml_key") # just an example. Key may be arbitary 
+cfg.RabbitConsumer("mb_consumer_yaml_key") // just an example. Key may be arbitary 
 ```
 
