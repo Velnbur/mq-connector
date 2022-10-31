@@ -7,10 +7,10 @@ A small library for message brokers in DL projects.
 ### Consumer And Producer
 
 **Producer** - is an simple interface for publishing messages to queue.
-Every **producer** is stiked to queue for which it was created, so you have
-a **producer** for each proccessed queue.
+Every **producer** attached to queue for which it was created, so you have
+a **producer** for each processed queue.
 
-**Consumer** - is long running proccess, that somehow handles every received
+**Consumer** - is long running process, that somehow handles every received
 message from **producer**. 
  
 ```mermaid
@@ -31,7 +31,7 @@ or more times by different (or the same) **consumers**.
 
 ### Subscriber and Publisher
 
-**Publisher** - is the the special case of **producer**, that publishes a message
+**Publisher** - is the special case of **producer**, that publishes a message
 not to a single queue, but to an _**subscription**_ (exchange or some kind of a router)
 that will copy message to all subscribed (listening) queues.
 
@@ -62,9 +62,9 @@ flowchart LR
 ### Request/Reply model `RpcServer`, `RpcClient`
 
 Here, for communication between two services, two queues will be created
-for requests and responses respectivly. Each request message will have a
+for requests and responses respectively. Each request message will have a
 `ReplyTo` parameter, where will be the name of the queue to which send the
-reponse message.
+response message.
 
 ```mermaid
 flowchart LR
